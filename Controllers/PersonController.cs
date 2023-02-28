@@ -1,3 +1,4 @@
+using ImageGram.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ImageGram.Controllers;
@@ -6,14 +7,16 @@ namespace ImageGram.Controllers;
 [Route("api")]
 public class PersonController : ControllerBase {
 
-    private readonly ILogger<PersonController> _logger;
+    private readonly ILogger<PersonController> logger;
+    private ICDBService dbService;
 
-    public PersonController(ILogger<PersonController> logger) {
-        _logger = logger;
+    public PersonController(ILogger<PersonController> logger, ICDBService dbService) {
+        this.logger = logger;
+        this.dbService = dbService;
     }
 
-    [HttpGet("person/{name}")]
-    public Person Get(string name) {
-        return new Person(name);
+    [HttpGet("say")]
+    public Person Get() {
+        return new Person(this.dbService.GetData());
     }
 }
