@@ -3,7 +3,7 @@ using ImageGram.Entity;
 
 namespace ImageGram.DB.Repository;
 
-public class CommentsRepository: CosmosDBRepository<Comment>, ICommentsRepository {
+public class CommentsRepository: CosmosDBRepository<Comment> {
     public override string containerName { get; } = "comments";
 
     public CommentsRepository(IContainerFactory factory): base(factory) {}
