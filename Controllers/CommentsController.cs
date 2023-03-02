@@ -1,6 +1,7 @@
 using ImageGram.DB.Container;
 using ImageGram.DB.Repository;
 using ImageGram.Entity;
+using ImageGram.Service;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ImageGram.Controllers;
@@ -9,16 +10,19 @@ namespace ImageGram.Controllers;
 [Route("comments")]
 public class CommentsController: ControllerBase {
     private readonly ILogger<CommentsController> logger;
-    private readonly CommentsRepository repository;
+    private readonly IGramService service;
 
-    public CommentsController(ILogger<CommentsController> logger, IContainerFactory factory) {
+    public CommentsController(ILogger<CommentsController> logger, IGramService service) {
         this.logger = logger;
-        this.repository = new CommentsRepository(factory);
+        this.service = service;
     }
 
     [HttpGet]
     public async Task<IEnumerable<Comment>> Get() {
-        var result = await this.repository.getItemsAsync("select * from c");
+        string? cToken = Request.Headers["x-ig-continuation-token"];
+        var result = await this.service.getComments(cToken);
+        Response.Headers.Add("x-ig-continuation-token", this.service.getContinuationToken());
+
         return result;
     }
 }

@@ -5,10 +5,7 @@ namespace ImageGram.DB.Repository;
 
 public class CommentsRepository: CosmosDBRepository<Comment> {
     public override string containerName { get; } = "comments";
+    public override int pageSize { get; } = 2;
 
     public CommentsRepository(IContainerFactory factory): base(factory) {}
-
-    protected override string generateId(Comment item) {
-        return $"{item.authorId.ToString()}:{item.postId}:{DateTimeOffset.Now.ToUnixTimeSeconds().ToString()}";
-    }
 }
