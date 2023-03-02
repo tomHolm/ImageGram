@@ -40,9 +40,9 @@ public abstract class CosmosDBRepository<T>: IRepository<T> where T: EntityBase 
         return response.Resource;
     }
 
-    public async Task AddItemAsync(T item) {
+    public async Task<ItemResponse<T>> AddItemAsync(T item) {
         item.generateId();
-        await this.container.CreateItemAsync<T>(item, this.getPartitionKey(item.id));
+        return await this.container.CreateItemAsync<T>(item);
     }
 
     public async Task UpdateItemAsync(T item) {
