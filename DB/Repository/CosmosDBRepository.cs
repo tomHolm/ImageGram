@@ -8,25 +8,30 @@ using Microsoft.Azure.Cosmos;
 
 public abstract class CosmosDBRepository<T>: IRepository<T> where T: EntityBase {
     public abstract string containerName { get; }
+    public abstract int pageSize { get; }
+    public string continuationToken { get; set; } = string.Empty;
     private readonly Container container;
 
     public CosmosDBRepository(IContainerFactory factory) {
         this.container = factory.getContainer(this.containerName).container;
     }
 
-    protected abstract string generateId(T entity);
-
     protected virtual PartitionKey getPartitionKey(string id) {
         return new PartitionKey(id.Split(':')[0]);
     }
 
-    public async Task<IEnumerable<T>> getItemsAsync(string query) {
-        FeedIterator<T> iterator = this.container.GetItemQueryIterator<T>(new QueryDefinition(query));
+    public async Task<IEnumerable<T>> getItemsAsync(string query, string? continuationToken = null) {
+        FeedIterator<T> iterator = this.container.GetItemQueryIterator<T>(
+            query,
+            continuationToken,
+            new QueryRequestOptions{ MaxItemCount = this.pageSize }
+            );
         List<T> result = new List<T>();
-        while (iterator.HasMoreResults) {
-            FeedResponse<T> response = await iterator.ReadNextAsync();
-            result.AddRange(response.ToList());
-        }
+
+        FeedResponse<T> response = await iterator.ReadNextAsync();
+        result.AddRange(response.ToList());
+        this.continuationToken = response.ContinuationToken;
+
         return result;
     }
 
@@ -36,7 +41,7 @@ public abstract class CosmosDBRepository<T>: IRepository<T> where T: EntityBase 
     }
 
     public async Task AddItemAsync(T item) {
-        item.id = this.generateId(item);
+        item.generateId();
         await this.container.CreateItemAsync<T>(item, this.getPartitionKey(item.id));
     }
 
