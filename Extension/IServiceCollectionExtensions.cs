@@ -1,5 +1,5 @@
 using ImageGram.DB;
-using ImageGram.DB.Container;
+using ImageGram.DB.Repository;
 using ImageGram.Entity;
 using Microsoft.Azure.Cosmos;
 
@@ -7,90 +7,99 @@ namespace ImageGram.Extension;
 
 public static class IServiceCollectionExtensions {
 
+    private static CosmosClient getCosmosClient(CosmosDBOptions options) {
+        CosmosClient client = new CosmosClient(options.connectionString, options.primaryKey);
+        checkInitialDB(client, options);
+        return client;
+    }
+
     private static void checkInitialDB(CosmosClient client, CosmosDBOptions options) {
-        DatabaseResponse response = client.CreateDatabaseIfNotExistsAsync(options.dbId).Result;
-        Database db = response.Database;
+        DatabaseResponse dbResponse = client.CreateDatabaseIfNotExistsAsync(options.dbId).Result;
+        Database db = dbResponse.Database;
 
-        List<Container> conts = new List<Container>();
-        foreach (ContainerInfo cInfo in options.containers) {
-            conts.Add(db.CreateContainerIfNotExistsAsync(cInfo.name, cInfo.partitionKey).Result.Container);
-        }
+        ContainerResponse cResponse = db.CreateContainerIfNotExistsAsync(options.containerId, options.partitionKey).Result;
+        Container container = cResponse.Container;
 
-        if (response.StatusCode == System.Net.HttpStatusCode.Created) {
+        // TODO Create stored procedure
+        container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
+            Id = options.storedProcName,
+            Body = File.ReadAllText($@"DB\Stored\{options.storedProcName}.js")
+        });
+
+        if (dbResponse.StatusCode == System.Net.HttpStatusCode.Created) {
             long curTime = DateTimeOffset.Now.ToUnixTimeSeconds();
-
-            int firstAuthorId = 1;
-            int secondAuthorId = 2;
-            int thirdAuthorId = 3;
 
             long firstTime = curTime - 86400;
             long secondTime = firstTime + 3600;
             long thirdTime = secondTime + 7200;
 
-            string firstPostId = $"{firstAuthorId}:{firstTime}:atata";
-            string secondPostId = $"{firstAuthorId}:{secondTime}:tratata";
-            string thirdPostId = $"{secondAuthorId}:{thirdTime}:ololo";
+            string firstPostId = "atata";
+            string secondPostId = "tratata";
+            string thirdPostId = "ololo";
 
             List<Post> posts = new List<Post>{
-                new Post {id = firstPostId, authorId = firstAuthorId, image = "image.jpg", caption = "What a beautiful image!"},
-                new Post {id = secondPostId, authorId = firstAuthorId, image = "pepe.jpg"},
-                new Post {id = thirdPostId, authorId = secondAuthorId, image = "qwerty.jpg", caption = "Previous author is Pepe)) hehe"}
-            };
-
-            string firstCommentId = $"{thirdAuthorId}:{firstPostId}:{firstTime + 1800}:a";
-            string secondCommentId = $"{thirdAuthorId}:{secondPostId}:{secondTime + 60}:b";
-            string thirdCommentId = $"{firstAuthorId}:{secondPostId}:{secondTime + 600}:c";
-            string forthCommentId = $"{firstAuthorId}:{thirdPostId}:{thirdTime + 1800}:d";
-            string fifthCommentId = $"{secondAuthorId}:{firstPostId}:{firstTime + 1900}:e";
-            string sixthCommentId = $"{secondAuthorId}:{secondPostId}:{secondTime + 1800}:f";
-            string seventhCommentId = $"{firstAuthorId}:{secondPostId}:{secondTime + 2000}:g";
-            string eighthCommentId = $"{firstAuthorId}:{firstPostId}:{firstTime + 2100}:h";
-
-            List<Comment> comments = new List<Comment>{
-                new Comment {id = firstCommentId, postId = firstPostId, authorId = thirdAuthorId, text = "Really nice!"},
-                new Comment {id = secondCommentId, postId = secondPostId, authorId = thirdAuthorId, text = "ZHABA!"},
-                new Comment {id = thirdCommentId, postId = secondPostId, authorId = firstAuthorId, text = "SAM TY ZHABA!!!"},
-                new Comment {id = forthCommentId, postId = thirdPostId, authorId = firstAuthorId, text = "May be! hehe))"},
-                new Comment {id = fifthCommentId, postId = firstPostId, authorId = secondAuthorId, text = "wow!!!"},
-                new Comment {id = sixthCommentId, postId = secondPostId, authorId = secondAuthorId, text = "YA/MY ZHABA!"},
-                new Comment {id = seventhCommentId, postId = secondPostId, authorId = firstAuthorId, text = "Ahhaha!"},
-                new Comment {id = eighthCommentId, postId = firstPostId, authorId = firstAuthorId, text = "Really nice!"}
+                new Post {id = firstPostId, postId = firstPostId, image = "image.jpg", caption = "What a beautiful image!"},
+                new Post {id = secondPostId, postId = secondPostId, image = "pepe.jpg"},
+                new Post {id = thirdPostId, postId = thirdPostId, image = "qwerty.jpg", caption = "Previous author is Pepe)) hehe"}
             };
 
             foreach (Post item in posts) {
-                IEnumerable<Comment> total = comments.Where(
-                    (Comment comment) => { return comment.postId == item.id; }
-                );
-                int totalCount = total.Count();
-                item.comments.AddRange(total.Take(2));
-                item.commentsCount = totalCount;
-            } 
+                Post addedItem = container.CreateItemAsync<Post>(item, new PartitionKey(item.id)).Result.Resource;
+            }
 
-            foreach (Container container in conts) {
-                switch (container.Id) {
-                    case "posts":
-                        foreach (Post item in posts) {
-                            Post addedItem = container.CreateItemAsync<Post>(item).Result.Resource;
-                        }
-                        break;
-                    case "comments":
-                        foreach (Comment item in comments) {
-                            Comment addedComment = container.CreateItemAsync<Comment>(item).Result.Resource;
-                        }
-                        break;
+            string firstCommentId = "a";
+            string secondCommentId = "b";
+            string thirdCommentId = "c";
+            string forthCommentId = "d";
+            string fifthCommentId = "e";
+            string sixthCommentId = "f";
+            string seventhCommentId = "g";
+            string eighthCommentId = "h";
+
+            Dictionary<string, InnerComment[]> comments = new Dictionary<string, InnerComment[]>{
+                {
+                    firstPostId,
+                    new[] { 
+                        new InnerComment {id = firstCommentId, text = "Really nice!"},
+                        new InnerComment {id = fifthCommentId, text = "wow!!!"},
+                        new InnerComment {id = eighthCommentId, text = "Really nice!"}
+                    }
+                },
+                {
+                    secondPostId,
+                    new[] {
+                        new InnerComment {id = secondCommentId, text = "ZHABA!"},
+                        new InnerComment {id = thirdCommentId, text = "SAM TY ZHABA!!!"},
+                        new InnerComment {id = sixthCommentId, text = "YA/MY ZHABA!"},
+                        new InnerComment {id = seventhCommentId, text = "Ahhaha!"}
+                    }
+                },
+                {
+                    thirdPostId,
+                    new[] {
+                        new InnerComment {id = forthCommentId, text = "May be! hehe))"}
+                    }
+                }
+            };
+
+            foreach (KeyValuePair<string, InnerComment[]> pair in comments) {
+                foreach (InnerComment comment in pair.Value) {
+                    dynamic[] procParams = { pair.Key, comment };
+                    var response = container.Scripts.ExecuteStoredProcedureAsync<InnerComment>(
+                        options.storedProcName,
+                        new PartitionKey(pair.Key),
+                        procParams
+                    ).Result;
+                    InnerComment newCom = response.Resource;
                 }
             }
         }
     }
 
-        
     public static IServiceCollection AddCosmosDB(this IServiceCollection services, CosmosDBOptions options) {
-        CosmosClient client = new CosmosClient(options.connectionString, options.primaryKey);
-
-        checkInitialDB(client, options);
-
-        CosmosDBContainerFactory factory = new CosmosDBContainerFactory(client, options);
-        services.AddSingleton<IContainerFactory>(factory);
+        CosmosClient client = getCosmosClient(options);
+        PostsRepository postsRepo = new PostsRepository(client, options);
+        services.AddSingleton<IPostsRepository>(postsRepo);
         return services;
     }
 }

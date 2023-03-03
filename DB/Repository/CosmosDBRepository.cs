@@ -1,4 +1,3 @@
-using ImageGram.DB.Container;
 using ImageGram.Entity;
 
 namespace ImageGram.DB.Repository;
@@ -6,21 +5,20 @@ namespace ImageGram.DB.Repository;
 using System.Collections.Generic;
 using Microsoft.Azure.Cosmos;
 
-public abstract class CosmosDBRepository<T>: IRepository<T> where T: EntityBase {
-    public abstract string containerName { get; }
-    public abstract int pageSize { get; }
+public abstract class CosmosDBRepository<T> where T: EntityBase {
+    protected abstract int pageSize { get; }
     public string continuationToken { get; set; } = string.Empty;
     private readonly Container container;
 
-    public CosmosDBRepository(IContainerFactory factory) {
-        this.container = factory.getContainer(this.containerName).container;
+    public CosmosDBRepository(CosmosClient client, CosmosDBOptions options) {
+        this.container = client.GetContainer(options.dbId, options.containerId);
     }
 
     protected virtual PartitionKey getPartitionKey(string id) {
         return new PartitionKey(id.Split(':')[0]);
     }
 
-    public async Task<IEnumerable<T>> getItemsAsync(string query, string? continuationToken = null) {
+    protected async Task<IEnumerable<T>> getItemsAsync(string query, string? continuationToken = null) {
         FeedIterator<T> iterator = this.container.GetItemQueryIterator<T>(
             query,
             continuationToken,
@@ -35,21 +33,25 @@ public abstract class CosmosDBRepository<T>: IRepository<T> where T: EntityBase 
         return result;
     }
 
-    public async Task<T> GetItemAsync(string id) {
-        ItemResponse<T> response = await this.container.ReadItemAsync<T>(id, this.getPartitionKey(id));
+    protected async Task<K> GetItemAsync<K>(string id, string partitionKey) {
+        ItemResponse<K> response = await this.container.ReadItemAsync<K>(id, this.getPartitionKey(partitionKey));
         return response.Resource;
     }
 
-    public async Task<ItemResponse<T>> AddItemAsync(T item) {
+    protected async Task<ItemResponse<T>> AddItemAsync(T item) {
         item.generateId();
-        return await this.container.CreateItemAsync<T>(item);
+        return await this.container.CreateItemAsync<T>(item, new PartitionKey(item.id));
     }
 
-    public async Task UpdateItemAsync(T item) {
-        await this.container.UpsertItemAsync<T>(item, this.getPartitionKey(item.id));
+    protected async Task DeleteItemAsync<K>(string id, string partitionKey) {
+        await this.container.DeleteItemAsync<K>(id, new PartitionKey(partitionKey));
     }
 
-    public async Task DeleteItemAsync(string id) {
-        await this.container.DeleteItemAsync<T>(id, this.getPartitionKey(id));
+    protected async Task<K> executeStoredProcedure<K>(string procName, string pKey, dynamic[] inputParams) {
+        return await this.container.Scripts.ExecuteStoredProcedureAsync<K>(
+            procName,
+            new PartitionKey(pKey),
+            inputParams
+        );
     }
 }
