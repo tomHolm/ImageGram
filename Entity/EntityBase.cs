@@ -2,8 +2,11 @@ namespace ImageGram.Entity;
 
 public abstract class EntityBase {
     public string id { get; set; } = string.Empty;
-    protected abstract string makeNewId();
-    public void generateId() {
+    public virtual string type { get; } = string.Empty;
+    private string makeNewId() {
+        return $"{Guid.NewGuid()}";
+    }
+    public virtual void generateId() {
         this.id = this.makeNewId();
     }
 }
