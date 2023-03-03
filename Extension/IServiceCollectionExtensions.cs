@@ -20,10 +20,14 @@ public static class IServiceCollectionExtensions {
         ContainerResponse cResponse = db.CreateContainerIfNotExistsAsync(options.containerId, options.partitionKey).Result;
         Container container = cResponse.Container;
 
-        // TODO Create stored procedure
         container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
-            Id = options.storedProcName,
-            Body = File.ReadAllText($@"DB\Stored\{options.storedProcName}.js")
+            Id = options.addCommentProcName,
+            Body = File.ReadAllText($@"DB\Stored\{options.addCommentProcName}.js")
+        });
+
+        container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
+            Id = options.deleteCommentProcName,
+            Body = File.ReadAllText($@"DB\Stored\{options.deleteCommentProcName}.js")
         });
 
         if (dbResponse.StatusCode == System.Net.HttpStatusCode.Created) {
@@ -60,24 +64,24 @@ public static class IServiceCollectionExtensions {
                 {
                     firstPostId,
                     new[] { 
-                        new InnerComment {id = firstCommentId, text = "Really nice!"},
-                        new InnerComment {id = fifthCommentId, text = "wow!!!"},
-                        new InnerComment {id = eighthCommentId, text = "Really nice!"}
+                        new InnerComment {id = firstCommentId, text = "Really nice!", timestamp = firstTime + 30},
+                        new InnerComment {id = fifthCommentId, text = "wow!!!", timestamp = firstTime + 300},
+                        new InnerComment {id = eighthCommentId, text = "Really nice!", timestamp = firstTime + 333}
                     }
                 },
                 {
                     secondPostId,
                     new[] {
-                        new InnerComment {id = secondCommentId, text = "ZHABA!"},
-                        new InnerComment {id = thirdCommentId, text = "SAM TY ZHABA!!!"},
-                        new InnerComment {id = sixthCommentId, text = "YA/MY ZHABA!"},
-                        new InnerComment {id = seventhCommentId, text = "Ahhaha!"}
+                        new InnerComment {id = secondCommentId, text = "ZHABA!", timestamp = secondTime + 60},
+                        new InnerComment {id = thirdCommentId, text = "SAM TY ZHABA!!!", timestamp = secondTime + 66},
+                        new InnerComment {id = sixthCommentId, text = "YA/MY ZHABA!", timestamp = secondTime + 666},
+                        new InnerComment {id = seventhCommentId, text = "Ahhaha!", timestamp = secondTime + 999}
                     }
                 },
                 {
                     thirdPostId,
                     new[] {
-                        new InnerComment {id = forthCommentId, text = "May be! hehe))"}
+                        new InnerComment {id = forthCommentId, text = "May be! hehe))", timestamp = thirdTime + 555}
                     }
                 }
             };
@@ -86,7 +90,7 @@ public static class IServiceCollectionExtensions {
                 foreach (InnerComment comment in pair.Value) {
                     dynamic[] procParams = { pair.Key, comment };
                     var response = container.Scripts.ExecuteStoredProcedureAsync<InnerComment>(
-                        options.storedProcName,
+                        options.addCommentProcName,
                         new PartitionKey(pair.Key),
                         procParams
                     ).Result;

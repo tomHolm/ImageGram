@@ -1,3 +1,4 @@
+using System.Net;
 using ImageGram.Entity;
 using ImageGram.Service;
 using Microsoft.AspNetCore.Mvc;
@@ -39,5 +40,13 @@ public class PostsController: ControllerBase {
         Response.Headers.Add("x-ig-continuation-token", this.service.getContinuationToken());
 
         return result;
+    }
+
+    [HttpDelete("{postId}/comments/{commentId}")]
+    public async Task deleteComment([FromRoute] string postId, [FromRoute] string commentId) {
+        var result = await this.service.deleteComment(postId, commentId);
+        Response.StatusCode = result 
+            ? (int)HttpStatusCode.NoContent
+            : (int)HttpStatusCode.NotFound;
     }
 }

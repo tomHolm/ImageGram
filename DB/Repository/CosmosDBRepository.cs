@@ -52,6 +52,7 @@ public abstract class CosmosDBRepository<T> where T: EntityBase {
             procName,
             new PartitionKey(pKey),
             inputParams
+            //new Microsoft.Azure.Cosmos.Scripts.StoredProcedureRequestOptions { ConsistencyLevel = ConsistencyLevel.BoundedStaleness }
         );
     }
 }

@@ -30,4 +30,9 @@ public class ImageGramService: IGramService {
     public string getContinuationToken() {
         return this.repo.getContinuationToken();
     }
+
+    public async Task<bool> deleteComment(string postId, string commentId) {
+        var response = await this.repo.deleteComment(postId, commentId);
+        return response.success;
+    }
 }

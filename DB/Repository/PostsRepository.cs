@@ -1,3 +1,4 @@
+using ImageGram.DB.Stored.Response;
 using ImageGram.Entity;
 using Microsoft.Azure.Cosmos;
 
@@ -5,10 +6,12 @@ namespace ImageGram.DB.Repository;
 
 public class PostsRepository: CosmosDBRepository<Post>, IPostsRepository {
     protected override int pageSize { get; } = 2;
-    private string storedProcName { get; set; }
+    private string addCommentProcName { get; set; }
+    private string deleteCommentProcName { get; set; }
 
     public PostsRepository(CosmosClient client, CosmosDBOptions options): base(client, options) {
-        this.storedProcName = options.storedProcName;
+        this.addCommentProcName = options.addCommentProcName;
+        this.deleteCommentProcName = options.deleteCommentProcName;
     }
 
     public string getContinuationToken() {
@@ -25,7 +28,7 @@ public class PostsRepository: CosmosDBRepository<Post>, IPostsRepository {
         comment.generateId();
         dynamic[] inParams = { postId, comment };
         return await this.executeStoredProcedure<Comment>(
-            this.storedProcName,
+            this.addCommentProcName,
             postId,
             inParams
         );
@@ -41,7 +44,16 @@ public class PostsRepository: CosmosDBRepository<Post>, IPostsRepository {
     public async Task<Post> getPostById(string id) {
         return await this.GetItemAsync<Post>(id, id);
     }
-    public async Task<Comment> GetCommentById(string id, string partitionKey) {
+    public async Task<Comment> getCommentById(string id, string partitionKey) {
         return await this.GetItemAsync<Comment>(id, partitionKey);
+    }
+
+    public async Task<DeleteCommentResponse> deleteComment(string postId, string commentId) {
+        dynamic[] inParams = { commentId, postId };
+        return await this.executeStoredProcedure<DeleteCommentResponse>(
+            this.deleteCommentProcName,
+            postId,
+            inParams
+        );
     }
 }
