@@ -1,4 +1,5 @@
 using System.Net;
+using ImageGram.Controllers.Request;
 using ImageGram.Entity;
 using ImageGram.Service;
 using Microsoft.AspNetCore.Mvc;
@@ -17,11 +18,12 @@ public class PostsController: ControllerBase {
     }
 
     [HttpPost]
-    public async Task<Post> addPost([FromForm] string image, [FromForm] string? caption) {
-        if (image == string.Empty) {
+    public async Task<Post> addPost([FromForm] AddPostRequest req) {
+        if (req.image == null) {
             throw new InvalidDataException("Parameter is missing");
         }
-        return await this.service.createPost(image, caption);
+
+        return await this.service.createPost(req.image, req.caption);
     }
 
     [HttpPost("{postId}/comments")]

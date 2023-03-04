@@ -4,35 +4,38 @@ using ImageGram.Entity;
 namespace ImageGram.Service;
 
 public class ImageGramService: IGramService {
-    private IPostsRepository repo { get; set; }
+    private IPostsRepository postsRepo { get; set; }
+    private IImageRepository imageRepo { get; set; }
 
-    public ImageGramService(IPostsRepository postsRepository) {
-        this.repo = postsRepository;
+    public ImageGramService(IPostsRepository postsRepository, IImageRepository imageRepository) {
+        this.postsRepo = postsRepository;
+        this.imageRepo = imageRepository;
     }
 
     public async Task<IEnumerable<Post>> getPosts(string? continuationToken = null) {
-        return await this.repo.getPosts(continuationToken);
+        return await this.postsRepo.getPosts(continuationToken);
     }
 
-    public async Task<Post> createPost(string image, string? caption) {
-        return await this.repo.addPost(
+    public async Task<Post> createPost(IFormFile image, string? caption) {
+        string imageFile = this.imageRepo.storeImage(image);
+        return await this.postsRepo.addPost(
             new Post {
-                image = image,
+                image = imageFile,
                 caption = caption
             }
         );
     }
 
     public async Task<Comment> addComment(string postId, InnerComment comment) {
-        return await this.repo.addComment(postId, comment);
+        return await this.postsRepo.addComment(postId, comment);
     }
 
     public string getContinuationToken() {
-        return this.repo.getContinuationToken();
+        return this.postsRepo.getContinuationToken();
     }
 
     public async Task<bool> deleteComment(string postId, string commentId) {
-        var response = await this.repo.deleteComment(postId, commentId);
+        var response = await this.postsRepo.deleteComment(postId, commentId);
         return response.success;
     }
 }
