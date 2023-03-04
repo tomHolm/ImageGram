@@ -7,31 +7,8 @@ namespace ImageGram.Extension;
 
 public static class IServiceCollectionExtensions {
 
-    private static CosmosClient getCosmosClient(CosmosDBOptions options) {
-        CosmosClient client = new CosmosClient(options.connectionString, options.primaryKey);
-        checkInitialDB(client, options);
-        return client;
-    }
-
-    private static void checkInitialDB(CosmosClient client, CosmosDBOptions options) {
-        DatabaseResponse dbResponse = client.CreateDatabaseIfNotExistsAsync(options.dbId).Result;
-        Database db = dbResponse.Database;
-
-        ContainerResponse cResponse = db.CreateContainerIfNotExistsAsync(options.containerId, options.partitionKey).Result;
-        Container container = cResponse.Container;
-
-        container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
-            Id = options.addCommentProcName,
-            Body = File.ReadAllText($@"DB\Stored\{options.addCommentProcName}.js")
-        });
-
-        container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
-            Id = options.deleteCommentProcName,
-            Body = File.ReadAllText($@"DB\Stored\{options.deleteCommentProcName}.js")
-        });
-
-        if (dbResponse.StatusCode == System.Net.HttpStatusCode.Created) {
-            long curTime = DateTimeOffset.Now.ToUnixTimeSeconds();
+    private static void createInitialData(Container container, CosmosDBOptions options) {
+        long curTime = DateTimeOffset.Now.ToUnixTimeSeconds();
 
             long firstTime = curTime - 86400;
             long secondTime = firstTime + 3600;
@@ -97,6 +74,33 @@ public static class IServiceCollectionExtensions {
                     InnerComment newCom = response.Resource;
                 }
             }
+    }
+
+    private static CosmosClient getCosmosClient(CosmosDBOptions options) {
+        CosmosClient client = new CosmosClient(options.connectionString, options.primaryKey);
+        checkInitialDB(client, options);
+        return client;
+    }
+
+    private static void checkInitialDB(CosmosClient client, CosmosDBOptions options) {
+        DatabaseResponse dbResponse = client.CreateDatabaseIfNotExistsAsync(options.dbId).Result;
+        Database db = dbResponse.Database;
+
+        ContainerResponse cResponse = db.CreateContainerIfNotExistsAsync(options.containerId, options.partitionKey).Result;
+        Container container = cResponse.Container;
+
+        container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
+            Id = options.addCommentProcName,
+            Body = File.ReadAllText($@"DB\Stored\{options.addCommentProcName}.js")
+        });
+
+        container.Scripts.CreateStoredProcedureAsync(new Microsoft.Azure.Cosmos.Scripts.StoredProcedureProperties{
+            Id = options.deleteCommentProcName,
+            Body = File.ReadAllText($@"DB\Stored\{options.deleteCommentProcName}.js")
+        });
+
+        if (dbResponse.StatusCode == System.Net.HttpStatusCode.Created) {
+            createInitialData(container, options);
         }
     }
 

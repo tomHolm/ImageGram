@@ -8,14 +8,13 @@ public class ImageRepository: IImageRepository {
 
     public ImageRepository(IWebHostEnvironment hostEnvironment) {
         this.folderPath = Path.Combine(hostEnvironment.WebRootPath, "images");
-    } 
+    }
     public string storeImage(IFormFile file) {
         if (file == null) {
             throw new ArgumentNullException("file");
         }
 
         string newFileName = $"{Guid.NewGuid()}.jpg";
-
         using (MemoryStream mStream = new MemoryStream()) {
             file.CopyTo(mStream);
             Image img = new Bitmap(mStream);

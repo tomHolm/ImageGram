@@ -1,4 +1,3 @@
-using System.Net;
 using ImageGram.Controllers.Request;
 using ImageGram.Entity;
 using ImageGram.Service;
@@ -17,38 +16,65 @@ public class PostsController: ControllerBase {
         this.service = service;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Post>>> GetPosts() {
+        string? cToken = Request.Headers["x-ig-continuation-token"];
+        var result = await this.service.getPosts(cToken);
+        if (result.Any()) {
+            Response.Headers.Add("x-ig-continuation-token", this.service.getContinuationToken());
+            return Ok(result);
+        } else {
+            return NotFound();
+        }
+    }
+
     [HttpPost]
-    public async Task<Post> addPost([FromForm] AddPostRequest req) {
+    public async Task<ActionResult<Post>> addPost([FromForm] AddPostRequest req) {
         if (req.image == null) {
-            throw new InvalidDataException("Parameter is missing");
+            return BadRequest();
         }
 
-        return await this.service.createPost(req.image, req.caption);
+        var result = await this.service.createPost(req.image, req.caption);
+        string getUrl = $"{Request.Path}/{result.id}";
+        return Created(getUrl, result);
+    }
+
+    [HttpGet("{postId}")]
+    public async Task<ActionResult<Post>> getPost([FromRoute] string postId) {
+        var result = await this.service.getPostById(postId);
+        return result != null 
+            ? Ok(result)
+            : NotFound();
     }
 
     [HttpPost("{postId}/comments")]
-    public async Task<Comment> addComment([FromRoute] string postId, [FromBody] InnerComment comment) {
+    public async Task<ActionResult<Comment>> addComment([FromRoute] string postId, [FromBody] InnerComment comment) {
         if (comment.text == string.Empty) {
-            throw new InvalidDataException("Parameter is missing");
+            return BadRequest();
         }
 
-        return await this.service.addComment(postId, comment);
+        var result = await this.service.addComment(postId, comment);
+        if (result != null) {
+            string getUrl = $"{Request.Path}/{result.id}";
+            return Created(getUrl, result);
+        } else {
+            return NotFound();
+        }
     }
 
-    [HttpGet]
-    public async Task<IEnumerable<Post>> GetPosts() {
-        string? cToken = Request.Headers["x-ig-continuation-token"];
-        var result = await this.service.getPosts(cToken);
-        Response.Headers.Add("x-ig-continuation-token", this.service.getContinuationToken());
-
-        return result;
+    [HttpGet("{postId}/comments/{commentId}")]
+    public async Task<ActionResult<Comment>> getComment([FromRoute] string postId, [FromRoute] string commentId) {
+        var result = await this.service.getCommentById(postId, commentId);
+        return result != null
+            ? Ok(result)
+            : NotFound();
     }
 
     [HttpDelete("{postId}/comments/{commentId}")]
-    public async Task deleteComment([FromRoute] string postId, [FromRoute] string commentId) {
+    public async Task<ActionResult> deleteComment([FromRoute] string postId, [FromRoute] string commentId) {
         var result = await this.service.deleteComment(postId, commentId);
-        Response.StatusCode = result 
-            ? (int)HttpStatusCode.NoContent
-            : (int)HttpStatusCode.NotFound;
+        return result 
+            ? NoContent()
+            : NotFound();
     }
 }

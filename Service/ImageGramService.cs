@@ -26,8 +26,16 @@ public class ImageGramService: IGramService {
         );
     }
 
+    public async Task<Post?> getPostById(string postId) {
+        return await this.postsRepo.getPostById(postId);
+    }
+
     public async Task<Comment> addComment(string postId, InnerComment comment) {
         return await this.postsRepo.addComment(postId, comment);
+    }
+
+    public async Task<Comment?> getCommentById(string postId, string commentId) {
+        return await this.postsRepo.getCommentById(commentId, postId);
     }
 
     public string getContinuationToken() {
@@ -36,6 +44,6 @@ public class ImageGramService: IGramService {
 
     public async Task<bool> deleteComment(string postId, string commentId) {
         var response = await this.postsRepo.deleteComment(postId, commentId);
-        return response.success;
+        return response != null && response.success;
     }
 }

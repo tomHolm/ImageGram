@@ -41,10 +41,10 @@ public class PostsRepository: CosmosDBRepository<Post>, IPostsRepository {
         );
     }
 
-    public async Task<Post> getPostById(string id) {
+    public async Task<Post?> getPostById(string id) {
         return await this.GetItemAsync<Post>(id, id);
     }
-    public async Task<Comment> getCommentById(string id, string partitionKey) {
+    public async Task<Comment?> getCommentById(string id, string partitionKey) {
         return await this.GetItemAsync<Comment>(id, partitionKey);
     }
 

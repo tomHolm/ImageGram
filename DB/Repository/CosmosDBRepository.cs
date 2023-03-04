@@ -3,6 +3,7 @@ using ImageGram.Entity;
 namespace ImageGram.DB.Repository;
 
 using System.Collections.Generic;
+using System.Net;
 using Microsoft.Azure.Cosmos;
 
 public abstract class CosmosDBRepository<T> where T: EntityBase {
@@ -33,9 +34,13 @@ public abstract class CosmosDBRepository<T> where T: EntityBase {
         return result;
     }
 
-    protected async Task<K> GetItemAsync<K>(string id, string partitionKey) {
-        ItemResponse<K> response = await this.container.ReadItemAsync<K>(id, this.getPartitionKey(partitionKey));
-        return response.Resource;
+    protected async Task<K> GetItemAsync<K>(string id, string partitionKey) where K: EntityBase {
+        try {
+            ItemResponse<K> response = await this.container.ReadItemAsync<K>(id, this.getPartitionKey(partitionKey));
+            return response.Resource;
+        } catch(CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound) {
+            return default;
+        }
     }
 
     protected async Task<ItemResponse<T>> AddItemAsync(T item) {
@@ -48,11 +53,14 @@ public abstract class CosmosDBRepository<T> where T: EntityBase {
     }
 
     protected async Task<K> executeStoredProcedure<K>(string procName, string pKey, dynamic[] inputParams) {
-        return await this.container.Scripts.ExecuteStoredProcedureAsync<K>(
-            procName,
-            new PartitionKey(pKey),
-            inputParams
-            //new Microsoft.Azure.Cosmos.Scripts.StoredProcedureRequestOptions { ConsistencyLevel = ConsistencyLevel.BoundedStaleness }
-        );
+        try {
+            return await this.container.Scripts.ExecuteStoredProcedureAsync<K>(
+                procName,
+                new PartitionKey(pKey),
+                inputParams
+            );
+        } catch (CosmosException e) when (e.SubStatusCode == (int)HttpStatusCode.NotFound) {
+            return default;
+        }
     }
 }
